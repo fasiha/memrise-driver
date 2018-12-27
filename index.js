@@ -2,6 +2,20 @@
 Step 0: download geckodriver from
 https://github.com/mozilla/geckodriver/releases/ and put it in your path (e.g.,
 this directory).
+
+Step 1: create or edit `PRIVATE.js` to include fields. See `PRIVATE_example.js`
+for required fields.
+
+Step 2: run
+```
+$ node index.js
+```
+and make a note of rows missing audio by searching output for "Uploaded 0 audio
+files for:".
+
+Step 3: perhaps using `makeAudio.sh` and AWS Polly, create audio.
+
+Step 4: rerun `node index.js` to upload audio.
 */
 
 const {Builder, By, Key, until} = require('selenium-webdriver');
@@ -23,7 +37,6 @@ const {join} = require('path');
     await driver.sleep(4000);
 
     let trs = await driver.findElements(By.css('tr.thing'));
-    let numAudioed = 0;
     for (let tr of trs) {
       let aud = await tr.findElement(By.css('td.audio[data-key]'));
       let text = await aud.getText();
@@ -35,7 +48,6 @@ const {join} = require('path');
         if (toUpload.length > 0) {
           numAudioed++;
           for (let s of toUpload) {
-            console.log(`Finna upload ${s}`);
             let input = await tr.findElement(
                 By.css('td.audio[data-key] div.files-add input'));
             await input.sendKeys(s);
