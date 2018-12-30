@@ -33,9 +33,7 @@ const writeFilePromise = promisify(writeFile);
  * @param {String} outputPath
  */
 function downloadFile(url, outputPath) {
-  return fetch(url)
-      .then(x => x.arrayBuffer())
-      .then(x => writeFilePromise(outputPath, Buffer.from(x)));
+  return fetch(url).then(x => x.arrayBuffer()).then(x => writeFilePromise(outputPath, Buffer.from(x)));
 }
 
 /**
@@ -43,9 +41,7 @@ function downloadFile(url, outputPath) {
  * underscores only)
  * @param {String} s string to make a slug
  */
-function slugify(s) {
-  return s.replace(/[^-_.a-zA-Z0-9]+/g, '-');
-}
+function slugify(s) { return s.replace(/[^-_.a-zA-Z0-9]+/g, '-'); }
 
 (async function memrise() {
   let driver = await new Builder().forBrowser('firefox').build();
@@ -62,11 +58,8 @@ function slugify(s) {
 
     let trs = await driver.findElements(By.css('tr.thing'));
     for (let tr of trs) {
-      let kana = await (tr.findElement(By.css('td.text[data-key="1"]'))
-                            .then(n => n.getText()));
-      let english = await (tr.findElement(By.css('td.text[data-key="2"]'))
-                               .then(n => n.getText()));
-
+      let kana = await (tr.findElement(By.css('td.text[data-key="1"]')).then(n => n.getText()));
+      let english = await (tr.findElement(By.css('td.text[data-key="2"]')).then(n => n.getText()));
 
       // Audio
       let aud = await tr.findElement(By.css('td.audio[data-key]'));
@@ -77,23 +70,17 @@ function slugify(s) {
         if (toUpload.length > 0) {
           numAudioed++;
           for (let s of toUpload) {
-            let input = await tr.findElement(
-                By.css('td.audio[data-key] div.files-add input'));
+            let input = await tr.findElement(By.css('td.audio[data-key] div.files-add input'));
             await input.sendKeys(s);
             await driver.sleep(2000);
           }
         }
         console.log(`Uploaded ${toUpload.length} audio files for: ${kana}`);
       } else {
-        let players =
-            await aud.findElements(By.css('a.audio-player[data-url]'));
-        let urls =
-            await Promise.all(players.map(a => a.getAttribute('data-url')));
-        await Promise.all(urls.map(
-            url => existsSync(slugify(url)) ? false :
-                                              downloadFile(url, slugify(url))));
-        console.log(`kana=${kana}\tEnglish=${english}\t${urls.length}\t${
-            urls.map(slugify).join('\t')}`);
+        let players = await aud.findElements(By.css('a.audio-player[data-url]'));
+        let urls = await Promise.all(players.map(a => a.getAttribute('data-url')));
+        await Promise.all(urls.map(url => existsSync(slugify(url)) ? false : downloadFile(url, slugify(url))));
+        console.log(`kana=${kana}\tEnglish=${english}\t${urls.length}\t${urls.map(slugify).join('\t')}`);
       }
 
       // Images
