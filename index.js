@@ -46,8 +46,9 @@ function downloadFile(url, outputPath) {
  */
 function slugify(s) { return s.replace(/[^-_.a-zA-Z0-9]+/g, '-'); }
 
-const downloadUrls = urls =>
-    Promise.all(urls.map(url => existsSync(slugify(url)) ? false : downloadFile(url, join(CONTENT_DIR, slugify(url)))));
+const toDownloadPath = f => join(CONTENT_DIR, f);
+const downloadUrls = urls => Promise.all(urls.map(
+    url => existsSync(toDownloadPath(slugify(url))) ? false : downloadFile(url, toDownloadPath(slugify(url)))));
 const urlsToTsv = (urls, label) => urls.map(u => `${label}=${slugify(u)}`).join('\t');
 
 (async function memrise() {
