@@ -44,7 +44,7 @@ function downloadFile(url, outputPath) {
  * @param {String} s string to make a slug
  */
 function slugify(s) {
-  return s.replace(/[^-_a-zA-Z0-9]/g, '-').replace(/-+/g, '-');
+  return s.replace(/[^-_.a-zA-Z0-9]+/g, '-');
 }
 
 (async function memrise() {
