@@ -49,7 +49,6 @@ function slugify(s) { return s.replace(/[^-_.a-zA-Z0-9]+/g, '-'); }
 const toDownloadPath = f => join(CONTENT_DIR, f);
 const downloadUrls = urls => Promise.all(urls.map(
     url => existsSync(toDownloadPath(slugify(url))) ? false : downloadFile(url, toDownloadPath(slugify(url)))));
-const urlsToTsv = (urls, label) => urls.map(u => `${label}=${slugify(u)}`).join('\t');
 
 (async function memrise() {
   let driver = await new Builder().forBrowser('firefox').build();
@@ -65,8 +64,10 @@ const urlsToTsv = (urls, label) => urls.map(u => `${label}=${slugify(u)}`).join(
 
     let trs = await driver.findElements(By.css('tr.thing'));
     for (let tr of trs) {
-      let kana = await (tr.findElement(By.css('td.text[data-key="1"]')).then(n => n.getText()));
-      let english = await (tr.findElement(By.css('td.text[data-key="2"]')).then(n => n.getText()));
+      let kana = await (tr.findElement(By.css('td.text.column[data-key="1"]')).then(n => n.getText()));
+      let english = await (tr.findElement(By.css('td.text.column[data-key="2"]')).then(n => n.getText()));
+      let pos = await (tr.findElement(By.css('td.text.attribute')).then(n => n.getText()));
+      let kanji = await (tr.findElement(By.css('td.text.column[data-key="4"]')).then(n => n.getText()));
 
       // Audio
       let aud = await tr.findElement(By.css('td.audio[data-key]'));
@@ -91,8 +92,7 @@ const urlsToTsv = (urls, label) => urls.map(u => `${label}=${slugify(u)}`).join(
       let imgs = await tr.findElements(By.css('td.image[data-key] div.images img.thing-img[data-url]'));
       let imgUrls = await Promise.all(imgs.map(img => img.getAttribute('data-url')));
       await downloadUrls(imgUrls);
-      console.log(`DEBUG: ${kana}|${english} img download=${imgUrls.length}`);
-      console.log(`kana=${kana}\tEnglish=${english}\t${urlsToTsv(audioUrls, 'audio')}\t${urlsToTsv(imgUrls, 'img')}`);
+      console.log(JSON.stringify({kana, english, kanji, pos, audio: audioUrls, img: imgUrls}));
     }
 
   } finally {
