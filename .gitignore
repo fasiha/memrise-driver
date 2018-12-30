@@ -1,2 +1,8 @@
 node_modules/
 PRIVATE.js
+.DS_Store
+downloaded-content/
+mp3s/
+*.txt
+*.json
+geckodriver
