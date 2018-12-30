@@ -62,39 +62,44 @@ const downloadUrls = urls => Promise.all(urls.map(
         `Array.from(document.getElementsByClassName('show-hide btn btn-small')).forEach(x => x.click())`);
     await driver.sleep(4000);
 
-    let trs = await driver.findElements(By.css('tr.thing'));
-    for (let tr of trs) {
-      let kana = await (tr.findElement(By.css('td.text.column[data-key="1"]')).then(n => n.getText()));
-      let english = await (tr.findElement(By.css('td.text.column[data-key="2"]')).then(n => n.getText()));
-      let pos = await (tr.findElement(By.css('td.text.attribute')).then(n => n.getText()));
-      let kanji = await (tr.findElement(By.css('td.text.column[data-key="4"]')).then(n => n.getText()));
+    let levels = await driver.findElements(By.css('div.level[data-level-id]'));
+    for (let level of levels) {
+      let levelTitle = await (level.findElement(By.css('div.level-header h3.level-name')).then(n => n.getText()));
+      console.log(JSON.stringify({levelTitle}));
 
-      // Audio
-      let aud = await tr.findElement(By.css('td.audio[data-key]'));
-      let players = await aud.findElements(By.css('a.audio-player[data-url]'));
-      let audioUrls = await Promise.all(players.map(a => a.getAttribute('data-url')));
-      await downloadUrls(audioUrls);
-      if (audioUrls.length === 0) {
-        let basefname = `${kana}.mp3`; // TODO FIXME: missing kana, repeated kana, etc.?
-        let toUpload = mp3paths.map(p => join(p, basefname)).filter(existsSync);
-        if (toUpload.length > 0) {
-          numAudioed++;
-          for (let s of toUpload) {
-            let input = await tr.findElement(By.css('td.audio[data-key] div.files-add input'));
-            await input.sendKeys(s);
-            await driver.sleep(2000);
+      let trs = await level.findElements(By.css('tr.thing'));
+      for (let tr of trs) {
+        let kana = await (tr.findElement(By.css('td.text.column[data-key="1"]')).then(n => n.getText()));
+        let english = await (tr.findElement(By.css('td.text.column[data-key="2"]')).then(n => n.getText()));
+        let pos = await (tr.findElement(By.css('td.text.attribute')).then(n => n.getText()));
+        let kanji = await (tr.findElement(By.css('td.text.column[data-key="4"]')).then(n => n.getText()));
+
+        // Audio
+        let aud = await tr.findElement(By.css('td.audio[data-key]'));
+        let players = await aud.findElements(By.css('a.audio-player[data-url]'));
+        let audioUrls = await Promise.all(players.map(a => a.getAttribute('data-url')));
+        await downloadUrls(audioUrls);
+        if (audioUrls.length === 0) {
+          let basefname = `${kana}.mp3`; // TODO FIXME: missing kana, repeated kana, etc.?
+          let toUpload = mp3paths.map(p => join(p, basefname)).filter(existsSync);
+          if (toUpload.length > 0) {
+            numAudioed++;
+            for (let s of toUpload) {
+              let input = await tr.findElement(By.css('td.audio[data-key] div.files-add input'));
+              await input.sendKeys(s);
+              await driver.sleep(2000);
+            }
           }
+          console.log(`DEBUG: Uploaded ${toUpload.length} audio files for: ${kana}`);
         }
-        console.log(`Uploaded ${toUpload.length} audio files for: ${kana}`);
+
+        // Images
+        let imgs = await tr.findElements(By.css('td.image[data-key] div.images img.thing-img[data-url]'));
+        let imgUrls = await Promise.all(imgs.map(img => img.getAttribute('data-url')));
+        await downloadUrls(imgUrls);
+        console.log(JSON.stringify({kana, english, kanji, pos, audio: audioUrls, img: imgUrls}));
       }
-
-      // Images
-      let imgs = await tr.findElements(By.css('td.image[data-key] div.images img.thing-img[data-url]'));
-      let imgUrls = await Promise.all(imgs.map(img => img.getAttribute('data-url')));
-      await downloadUrls(imgUrls);
-      console.log(JSON.stringify({kana, english, kanji, pos, audio: audioUrls, img: imgUrls}));
     }
-
   } finally {
     await driver.get('https://www.memrise.com/logout');
     await driver.quit();
