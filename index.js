@@ -26,9 +26,13 @@ const fetch = require('node-fetch');
 const {writeFile} = require('fs');
 const {promisify} = require('util');
 const writeFilePromise = promisify(writeFile);
+const mkdirp = require('mkdirp');
+
+const CONTENT_DIR = 'downloaded-content';
+mkdirp.sync(CONTENT_DIR);
 
 /**
- * Download a URL, then dump to a file
+ * Download a URL, then dump to a file.
  * @param {String} url
  * @param {String} outputPath
  */
@@ -37,11 +41,14 @@ function downloadFile(url, outputPath) {
 }
 
 /**
- * Convert a string to a stringy slug (using alphanumeric, dashes, and
- * underscores only)
+ * Convert a string to a stringy slug (using alphanumeric, dashes, underscores, and dots only).
  * @param {String} s string to make a slug
  */
 function slugify(s) { return s.replace(/[^-_.a-zA-Z0-9]+/g, '-'); }
+
+const downloadUrls = urls =>
+    Promise.all(urls.map(url => existsSync(slugify(url)) ? false : downloadFile(url, join(CONTENT_DIR, slugify(url)))));
+const urlsToTsv = (urls, label) => urls.map(u => `${label}=${slugify(u)}`).join('\t');
 
 (async function memrise() {
   let driver = await new Builder().forBrowser('firefox').build();
@@ -51,7 +58,6 @@ function slugify(s) { return s.replace(/[^-_.a-zA-Z0-9]+/g, '-'); }
     await driver.findElement(By.name('password')).sendKeys(passwd, Key.RETURN);
     await driver.wait(until.titleIs('Dashboard - Memrise'), 20000);
     await driver.get(url);
-    // await driver.executeScript('alert("hi")');
     await driver.executeScript(
         `Array.from(document.getElementsByClassName('show-hide btn btn-small')).forEach(x => x.click())`);
     await driver.sleep(4000);
@@ -63,9 +69,11 @@ function slugify(s) { return s.replace(/[^-_.a-zA-Z0-9]+/g, '-'); }
 
       // Audio
       let aud = await tr.findElement(By.css('td.audio[data-key]'));
-      let text = await aud.getText();
-      if (text.includes('no audio')) {
-        let basefname = `${kana}.mp3`;
+      let players = await aud.findElements(By.css('a.audio-player[data-url]'));
+      let audioUrls = await Promise.all(players.map(a => a.getAttribute('data-url')));
+      await downloadUrls(audioUrls);
+      if (audioUrls.length === 0) {
+        let basefname = `${kana}.mp3`; // TODO FIXME: missing kana, repeated kana, etc.?
         let toUpload = mp3paths.map(p => join(p, basefname)).filter(existsSync);
         if (toUpload.length > 0) {
           numAudioed++;
@@ -76,15 +84,14 @@ function slugify(s) { return s.replace(/[^-_.a-zA-Z0-9]+/g, '-'); }
           }
         }
         console.log(`Uploaded ${toUpload.length} audio files for: ${kana}`);
-      } else {
-        let players = await aud.findElements(By.css('a.audio-player[data-url]'));
-        let urls = await Promise.all(players.map(a => a.getAttribute('data-url')));
-        await Promise.all(urls.map(url => existsSync(slugify(url)) ? false : downloadFile(url, slugify(url))));
-        console.log(`kana=${kana}\tEnglish=${english}\t${urls.length}\t${urls.map(slugify).join('\t')}`);
       }
 
       // Images
-      // let aud = await tr.findElement(By.css('td.audio[data-key]'));
+      let imgs = await tr.findElements(By.css('td.image[data-key] div.images img.thing-img[data-url]'));
+      let imgUrls = await Promise.all(imgs.map(img => img.getAttribute('data-url')));
+      await downloadUrls(imgUrls);
+      console.log(`DEBUG: ${kana}|${english} img download=${imgUrls.length}`);
+      console.log(`kana=${kana}\tEnglish=${english}\t${urlsToTsv(audioUrls, 'audio')}\t${urlsToTsv(imgUrls, 'img')}`);
     }
 
   } finally {
