@@ -1,3 +1,4 @@
+"use strict";
 /*
 Step 0: download geckodriver from
 https://github.com/mozilla/geckodriver/releases/ and put it in your path (e.g.,
@@ -19,17 +20,18 @@ Step 4: rerun `node index.js` to upload audio.
 */
 
 const {Builder, By, Key, until} = require('selenium-webdriver');
-const {url, user, passwd, mp3paths} = require('./PRIVATE');
 const {existsSync} = require('fs');
 const {join} = require('path');
 const fetch = require('node-fetch');
 const {writeFile} = require('fs');
 const {promisify} = require('util');
 const writeFilePromise = promisify(writeFile);
-const mkdirp = require('mkdirp');
+const {url, user, passwd, keyColumnNumbers, mp3paths} = require('./PRIVATE');
+if ([url, user, passwd, keyColumnNumbers, mp3paths].some(x => typeof x === 'undefined')) {
+  throw new Error('Required personal parameter missing')
+}
 
-const CONTENT_DIR = 'downloaded-content';
-mkdirp.sync(CONTENT_DIR);
+const CONTENT_DIR = '.';
 
 /**
  * Download a URL, then dump to a file.
@@ -69,39 +71,51 @@ const downloadUrls = urls => Promise.all(urls.map(
 
       let trs = await level.findElements(By.css('tr.thing'));
       for (let tr of trs) {
-        let kana = await (tr.findElement(By.css('td.text.column[data-key="1"]')).then(n => n.getText()));
-        let english = await (tr.findElement(By.css('td.text.column[data-key="2"]')).then(n => n.getText()));
-        let pos = await (tr.findElement(By.css('td.text.attribute')).then(n => n.getText()));
-        let kanji = await (tr.findElement(By.css('td.text.column[data-key="4"]')).then(n => n.getText()));
+        let textCols = await tr.findElements(By.css('td.cell.text[data-key]'));
+        let texts = await Promise.all(textCols.map(td => td.getText()));
+        let key = keyColumnNumbers.map(n => texts[n]).filter(s => !!s).join(',');
+        if (!key) { throw new Error('No key found'); }
 
         // Audio
-        let aud = await tr.findElement(By.css('td.audio[data-key]'));
-        let players = await aud.findElements(By.css('a.audio-player[data-url]'));
-        let audioUrls = await Promise.all(players.map(a => a.getAttribute('data-url')));
-        await downloadUrls(audioUrls);
-        if (audioUrls.length === 0) {
-          let basefname = `${kana}.mp3`; // TODO FIXME: missing kana, repeated kana, etc.?
-          let toUpload = mp3paths.map(p => join(p, basefname)).filter(existsSync);
-          if (toUpload.length > 0) {
-            numAudioed++;
-            for (let s of toUpload) {
-              let input = await tr.findElement(By.css('td.audio[data-key] div.files-add input'));
-              await input.sendKeys(s);
-              await driver.sleep(2000);
+        let auds = await tr.findElements(By.css('td.audio[data-key]'));
+        let audioUrls = [];
+        if (auds.length > 0) {
+          let aud = auds[0];
+          let players = await aud.findElements(By.css('a.audio-player[data-url]'));
+          audioUrls = await Promise.all(players.map(a => a.getAttribute('data-url')));
+          await downloadUrls(audioUrls);
+          if (audioUrls.length === 0) {
+            let basefname = `${key}.mp3`;
+            let toUpload = mp3paths.map(p => join(p, basefname)).filter(existsSync);
+            if (toUpload.length > 0) {
+              for (let s of toUpload) {
+                let input = await tr.findElement(By.css('td.audio[data-key] div.files-add input'));
+                await input.sendKeys(s);
+                await driver.sleep(2000);
+              }
             }
+            console.log(`DEBUG: Uploaded ${toUpload.length} audio files for: ${key}`);
           }
-          console.log(`DEBUG: Uploaded ${toUpload.length} audio files for: ${kana}`);
         }
 
         // Images
         let imgs = await tr.findElements(By.css('td.image[data-key] div.images img.thing-img[data-url]'));
         let imgUrls = await Promise.all(imgs.map(img => img.getAttribute('data-url')));
         await downloadUrls(imgUrls);
-        console.log(JSON.stringify({kana, english, kanji, pos, audio: audioUrls, img: imgUrls}));
+        console.log(JSON.stringify({texts, key, audio: audioUrls, img: imgUrls}));
       }
     }
   } finally {
     await driver.get('https://www.memrise.com/logout');
     await driver.quit();
   }
-})()
+})();
+
+/*
+var tds=document.querySelectorAll('tr td.cell.text.attribute[data-key]');
+tds.forEach((td,i)=>{
+  td.querySelector('div.text').click();
+  td.querySelector('input').value=es[i];
+  td.querySelector('input').dispatchEvent(new Event('blur', { bubbles: true }));
+})
+*/
