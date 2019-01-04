@@ -14,7 +14,7 @@ npm install
 - download geckodriver from
 https://github.com/mozilla/geckodriver/releases/ and put it in the newly-created `memrise-driver` directory.
 - create or edit `PRIVATE.js` to include fields. See [`PRIVATE_example.js`](PRIVATE_example.js)
-for required fields—this will include your Memrise username and password, the course URL to edit, and the location of mp3 audio on your computer
+for required fields—this will include your Memrise username and password, the course URL to edit, the locations of mp3 audio on your computer, and the column numbers from which your mp3s will be named (`keyColumnNumbers`; if multiple columns provided, they'll be separated by commas; the numbers start with 0; and these only consider textual columns, including attributes)
 - run
 ```
 $ node index.js
@@ -22,4 +22,5 @@ $ node index.js
 and make a note of rows missing audio by searching output for "Uploaded 0 audio
 files for:".
 - use [`makeAudio.sh`](makeAudio.sh) and AWS Polly to create mp3s, then put them in the directories promised in `PRIVATE.js`
-- finally, rerun `node index.js` to upload audio
+- finally, rerun `node index.js` to upload new audio for any rows missing audio *and* download audio and images
+- (optional: rerun `node index.js` and tee the output to a line-delimited JSON file to have a convenient database of the course, including all images and audio (while this run won't upload anything, it will download everything you just uploaded, so it'll be about as slow; it won't re-download the same file, unless Memrise changes its location))

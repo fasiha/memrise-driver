@@ -94,7 +94,7 @@ const downloadUrls = urls => Promise.all(urls.map(
                 await driver.sleep(2000);
               }
             }
-            console.log(`DEBUG: Uploaded ${toUpload.length} audio files for: ${key}`);
+            console.log(`// DEBUG: Uploaded ${toUpload.length} audio files for: ${key}`);
           }
         }
 
