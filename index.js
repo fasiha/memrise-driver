@@ -51,6 +51,11 @@ function slugify(s) { return s.replace(/[^-_.a-zA-Z0-9]+/g, '-'); }
 const toDownloadPath = f => join(CONTENT_DIR, f);
 const downloadUrls = urls => Promise.all(urls.map(
     url => existsSync(toDownloadPath(slugify(url))) ? false : downloadFile(url, toDownloadPath(slugify(url)))));
+const flatten = v => v.reduce((prev, curr) => prev.concat(curr), []);
+const unique = v => {
+  let s = new Set(v);
+  return [...s];
+};
 
 (async function memrise() {
   let driver = await new Builder().forBrowser('firefox').build();
@@ -65,6 +70,7 @@ const downloadUrls = urls => Promise.all(urls.map(
     await driver.sleep(4000);
 
     let levels = await driver.findElements(By.css('div.level[data-level-id]'));
+    levels.reverse();
     for (let level of levels) {
       let levelTitle = await (level.findElement(By.css('div.level-header h3.level-name')).then(n => n.getText()));
       console.log(JSON.stringify({levelTitle}));
@@ -83,10 +89,10 @@ const downloadUrls = urls => Promise.all(urls.map(
           let aud = auds[0];
           let players = await aud.findElements(By.css('a.audio-player[data-url]'));
           audioUrls = await Promise.all(players.map(a => a.getAttribute('data-url')));
-          await downloadUrls(audioUrls);
+          // await downloadUrls(audioUrls);
           if (audioUrls.length === 0) {
-            let basefname = `${key}.mp3`;
-            let toUpload = mp3paths.map(p => join(p, basefname)).filter(existsSync);
+            let possibleFilenames = unique(flatten(texts.map(s => [s, s.replace(/\?/g, '？')])).map(s => `${s}.mp3`));
+            let toUpload = flatten(mp3paths.map(p => possibleFilenames.map(f => join(p, f)))).filter(existsSync);
             if (toUpload.length > 0) {
               for (let s of toUpload) {
                 let input = await tr.findElement(By.css('td.audio[data-key] div.files-add input'));
@@ -97,12 +103,15 @@ const downloadUrls = urls => Promise.all(urls.map(
             console.log(`// DEBUG: Uploaded ${toUpload.length} audio files for: ${key}`);
           }
         }
+        if (false) {
+          // Images
+          let imgs = await tr.findElements(By.css('td.image[data-key] div.images img.thing-img[data-url]'));
+          let imgUrls = await Promise.all(imgs.map(img => img.getAttribute('data-url')));
+          // await downloadUrls(imgUrls);
 
-        // Images
-        let imgs = await tr.findElements(By.css('td.image[data-key] div.images img.thing-img[data-url]'));
-        let imgUrls = await Promise.all(imgs.map(img => img.getAttribute('data-url')));
-        await downloadUrls(imgUrls);
-        console.log(JSON.stringify({texts, key, audio: audioUrls, img: imgUrls}));
+          // log
+          console.log(JSON.stringify({texts, key, audio: audioUrls, img: imgUrls}));
+        }
       }
     }
   } finally {
@@ -110,12 +119,3 @@ const downloadUrls = urls => Promise.all(urls.map(
     await driver.quit();
   }
 })();
-
-/*
-var tds=document.querySelectorAll('tr td.cell.text.attribute[data-key]');
-tds.forEach((td,i)=>{
-  td.querySelector('div.text').click();
-  td.querySelector('input').value=es[i];
-  td.querySelector('input').dispatchEvent(new Event('blur', { bubbles: true }));
-})
-*/
