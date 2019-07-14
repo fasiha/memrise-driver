@@ -67,7 +67,7 @@ const unique = v => {
     await driver.get(url);
     await driver.executeScript(
         `Array.from(document.getElementsByClassName('show-hide btn btn-small')).forEach(x => x.click())`);
-    await driver.sleep(4000);
+    await driver.sleep(8000);
 
     let levels = await driver.findElements(By.css('div.level[data-level-id]'));
     levels.reverse();
