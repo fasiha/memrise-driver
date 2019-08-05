@@ -6,3 +6,5 @@ mp3s/
 *.txt
 *.json
 geckodriver
+*-downloaded-content/
+mp3s/

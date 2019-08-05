@@ -26,7 +26,7 @@ const fetch = require('node-fetch');
 const {writeFile} = require('fs');
 const {promisify} = require('util');
 const writeFilePromise = promisify(writeFile);
-const {url, user, passwd, keyColumnNumbers, mp3paths} = require('./PRIVATE');
+const {url, user, passwd, keyColumnNumbers, mp3paths, imgpaths} = require('./PRIVATE');
 if ([url, user, passwd, keyColumnNumbers, mp3paths].some(x => typeof x === 'undefined')) {
   throw new Error('Required personal parameter missing')
 }
@@ -71,7 +71,9 @@ const unique = v => {
 
     let levels = await driver.findElements(By.css('div.level[data-level-id]'));
     levels.reverse();
+    let nlev = 0;
     for (let level of levels) {
+      nlev++;
       let levelTitle = await (level.findElement(By.css('div.level-header h3.level-name')).then(n => n.getText()));
       console.log(JSON.stringify({levelTitle}));
 
@@ -103,6 +105,29 @@ const unique = v => {
             console.log(`// DEBUG: Uploaded ${toUpload.length} audio files for: ${key}`);
           }
         }
+
+        // Images
+        let imgs = await tr.findElements(By.css('td.image[data-key]'));
+        if (imgs.length && imgpaths) {
+          const img = imgs[0];
+          const existing = await img.findElements(By.css('img.thing-img[data-url]'));
+          // const imgUrls = await Promise.all(existing.map(img => img.getAttribute('data-url')));
+          if (existing.length === 0) {
+            let possibleFilenames =
+                flatMap(flatMap(texts, s => [s, s.replace(/\?/g, '？')]), s => [`${s}.jpg`, `${s}.png`]);
+            possibleFilenames = Array.from(new Set(possibleFilenames));
+            let toUpload = flatten(imgpaths.map(p => possibleFilenames.map(f => join(p, f)))).filter(existsSync);
+            if (toUpload.length > 0) {
+              for (let s of toUpload) {
+                let input = await img.findElement(By.css('div.files-add input'));
+                await input.sendKeys(s);
+                await driver.sleep(2000);
+              }
+            }
+            console.log(`// DEBUG: Uploaded ${toUpload.length} img files for: ${key}`);
+          }
+        }
+
         if (false) {
           // Images
           let imgs = await tr.findElements(By.css('td.image[data-key] div.images img.thing-img[data-url]'));
@@ -119,3 +144,15 @@ const unique = v => {
     await driver.quit();
   }
 })();
+
+/**
+ *
+ * @template T
+ * @param {T[]} arr
+ * @param {(x:T)=>T[]} f
+ */
+function flatMap(arr, f) {
+  const ret = [];
+  for (const x of arr) { ret.push(...f(x)); }
+  return ret;
+}
