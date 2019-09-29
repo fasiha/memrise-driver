@@ -65,14 +65,29 @@ const unique = v => {
     await driver.findElement(By.name('password')).sendKeys(passwd, Key.RETURN);
     await driver.wait(until.titleIs('Dashboard - Memrise'), 20000);
     await driver.get(url);
+    console.log('WAITING 1');
+    await driver.sleep(8000);
     await driver.executeScript(
-        `Array.from(document.getElementsByClassName('show-hide btn btn-small')).forEach(x => x.click())`);
+        `Array.from(document.getElementsByClassName('show-hide btn btn-small')).reverse().slice(0,10).forEach(x => x.click())`);
+    console.log('WAITING 2');
     await driver.sleep(8000);
 
     let levels = await driver.findElements(By.css('div.level[data-level-id]'));
     levels.reverse();
     let nlev = 0;
     for (let level of levels) {
+      // const btn = await level.findElement(By.css('a.show-hide.btn'));
+      // {
+      //   const actions = driver.actions();
+      //   await actions.keyDown(Key.ESCAPE).keyUp(Key.ESCAPE).perform();
+      // }
+      // await btn.click();
+      // await driver.sleep(1000);
+      // {
+      //   const actions = driver.actions();
+      //   await actions.keyDown(Key.ESCAPE).keyUp(Key.ESCAPE).perform();
+      // }
+
       nlev++;
       let levelTitle = await (level.findElement(By.css('div.level-header h3.level-name')).then(n => n.getText()));
       console.log(JSON.stringify({levelTitle}));
@@ -94,7 +109,8 @@ const unique = v => {
           // await downloadUrls(audioUrls);
           if (audioUrls.length === 0) {
             let possibleFilenames = unique(flatten(texts.map(s => [s, s.replace(/\?/g, '？')])).map(s => `${s}.mp3`));
-            let toUpload = flatten(mp3paths.map(p => possibleFilenames.map(f => join(p, f)))).filter(existsSync);
+            let toUpload =
+                flatten(mp3paths.map(p => possibleFilenames.map(f => join(p, f)))).filter(existsSync).filter(s => s);
             if (toUpload.length > 0) {
               for (let s of toUpload) {
                 let input = await tr.findElement(By.css('td.audio[data-key] div.files-add input'));
@@ -102,7 +118,7 @@ const unique = v => {
                 await driver.sleep(2000);
               }
             }
-            console.log(`// DEBUG: Uploaded ${toUpload.length} audio files for: ${key}`);
+            console.log(`// DEBUG: Uploaded ${toUpload.length} audio files for: ${key}: ${toUpload.join(' , ')}`);
           }
         }
 
@@ -124,7 +140,7 @@ const unique = v => {
                 await driver.sleep(2000);
               }
             }
-            console.log(`// DEBUG: Uploaded ${toUpload.length} img files for: ${key}`);
+            console.log(`// DEBUG: Uploaded ${toUpload.length} img files for: ${key}: ${toUpload.join(' , ')}`);
           }
         }
 
