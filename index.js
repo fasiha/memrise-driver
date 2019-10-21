@@ -66,11 +66,11 @@ const unique = v => {
     await driver.wait(until.titleIs('Dashboard - Memrise'), 20000);
     await driver.get(url);
     console.log('WAITING 1');
-    await driver.sleep(8000);
+    await driver.sleep(12000);
     await driver.executeScript(
         `Array.from(document.getElementsByClassName('show-hide btn btn-small')).reverse().slice(0,10).forEach(x => x.click())`);
     console.log('WAITING 2');
-    await driver.sleep(8000);
+    await driver.sleep(12000);
 
     let levels = await driver.findElements(By.css('div.level[data-level-id]'));
     levels.reverse();
@@ -113,9 +113,17 @@ const unique = v => {
                 flatten(mp3paths.map(p => possibleFilenames.map(f => join(p, f)))).filter(existsSync).filter(s => s);
             if (toUpload.length > 0) {
               for (let s of toUpload) {
-                let input = await tr.findElement(By.css('td.audio[data-key] div.files-add input'));
-                await input.sendKeys(s);
-                await driver.sleep(2000);
+                let retry = 4;
+                while ((retry--) > 0) {
+                  await driver.sleep(500);
+                  let inputs = await tr.findElements(By.css('td.audio[data-key] div.files-add input'));
+                  if (inputs.length) {
+                    const input = inputs[0];
+                    await input.sendKeys(s);
+                    await driver.sleep(3300);
+                    break;
+                  }
+                }
               }
             }
             console.log(`// DEBUG: Uploaded ${toUpload.length} audio files for: ${key}: ${toUpload.join(' , ')}`);
