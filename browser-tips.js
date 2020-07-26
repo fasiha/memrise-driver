@@ -65,3 +65,51 @@
     td.querySelector('input').dispatchEvent(new Event('blur', {bubbles: true}));
   })
 }
+
+// course to spreadsheet
+{
+  // expand all
+  Array.from(document.getElementsByClassName('show-hide btn btn-small')).forEach(x => x.click())
+  // get 4th column (kanji) and first column (kana)
+  var dataKeyToTds = key => document.querySelectorAll(`td.cell.text[data-key="${key}"]`);
+  var nodesToText = nodes => Array.from(nodes, x => x.innerText);
+  var kanjis = nodesToText(dataKeyToTds(4))
+  var kanas = nodesToText(dataKeyToTds(1));
+
+  copy(kanjis.map((kanji, idx) => kanji || kanas[idx]).join('\n'))
+}
+
+// kanji/kana that's MISSING audio
+{
+  // expand all
+  Array.from(document.getElementsByClassName('show-hide btn btn-small')).forEach(x => x.click())
+
+  var parents = Array.from(document.querySelectorAll(`td.cell.text[data-key="1"]`), o => o.parentElement);
+  var toAudio = parents.filter(o => !o.querySelector('td.cell.audio.column button:not(.disabled)'))
+                    .map(o => (o.querySelector('td.cell.text[data-key="4"]')?.innerText ||
+                               o.querySelector('td.cell.text[data-key="1"]')?.innerText)
+                                  .trim())
+  var u = Array.from(new Set(toAudio));
+  console.log(u);
+  copy(u.join('\n'))
+}
+
+// delete all audio
+{
+  // expand all
+  Array.from(document.getElementsByClassName('show-hide btn btn-small')).forEach(x => x.click())
+  // delete first audio in each row (will leave other audios alone)
+  var audioTds = document.querySelectorAll(`td.cell.audio.column`);
+  audioTds.forEach((td, idx) => {
+    var button = td.querySelector('button:not(.disabled)');
+    if (button) {
+      console.log('deleting! ' + idx);
+      button.click();
+      var trash = td.querySelector('i.ico-trash');
+      trash.click();
+    }
+  });
+}
+
+// delete all BUT ONE
+{}

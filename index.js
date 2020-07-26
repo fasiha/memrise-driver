@@ -68,13 +68,12 @@ const unique = v => {
     console.log('WAITING 1');
     await driver.sleep(12000);
     await driver.executeScript(
-        `Array.from(document.getElementsByClassName('show-hide btn btn-small')).reverse().slice(0,10).forEach(x => x.click())`);
+        `Array.from(document.getElementsByClassName('show-hide btn btn-small')).forEach(x => x.click())`);
     console.log('WAITING 2');
     await driver.sleep(12000);
 
     let levels = await driver.findElements(By.css('div.level[data-level-id]'));
-    levels.reverse();
-    let nlev = 0;
+    // levels.reverse();
     for (let level of levels) {
       // const btn = await level.findElement(By.css('a.show-hide.btn'));
       // {
@@ -88,11 +87,11 @@ const unique = v => {
       //   await actions.keyDown(Key.ESCAPE).keyUp(Key.ESCAPE).perform();
       // }
 
-      nlev++;
       let levelTitle = await (level.findElement(By.css('div.level-header h3.level-name')).then(n => n.getText()));
-      console.log(JSON.stringify({levelTitle}));
 
       let trs = await level.findElements(By.css('tr.thing'));
+      console.log({levelTitle, trsLength: Array.from(trs).length});
+
       for (let tr of trs) {
         let textCols = await tr.findElements(By.css('td.cell.text[data-key]'));
         let texts = await Promise.all(textCols.map(td => td.getText()));
@@ -101,28 +100,28 @@ const unique = v => {
 
         // Audio
         let auds = await tr.findElements(By.css('td.audio[data-key]'));
+        console.log({audsLength: Array.from(auds).length});
         let audioUrls = [];
-        if (auds.length > 0) {
+        if (auds.length >= 0) {
           let aud = auds[0];
           let players = await aud.findElements(By.css('a.audio-player[data-url]'));
           audioUrls = await Promise.all(players.map(a => a.getAttribute('data-url')));
+          console.log({audioUrlsLength: audioUrls.length});
           // await downloadUrls(audioUrls);
-          if (audioUrls.length === 0) {
-            let possibleFilenames = unique(flatten(texts.map(s => [s, s.replace(/\?/g, '？')])).map(s => `${s}.mp3`));
-            let toUpload =
-                flatten(mp3paths.map(p => possibleFilenames.map(f => join(p, f)))).filter(existsSync).filter(s => s);
+          if (audioUrls.length >= 0) {
+            let possibleFilenames = flatten(texts.map(s => [s, s.replace(/\?/g, '？')])).map(s => `${s}.mp3`);
+            let toUpload = unique(
+                flatten(mp3paths.map(p => possibleFilenames.map(f => join(p, f)))).filter(existsSync).filter(s => s));
+            console.log({toUploadLength: toUpload.length});
             if (toUpload.length > 0) {
               for (let s of toUpload) {
-                let retry = 4;
-                while ((retry--) > 0) {
-                  await driver.sleep(500);
-                  let inputs = await tr.findElements(By.css('td.audio[data-key] div.files-add input'));
-                  if (inputs.length) {
-                    const input = inputs[0];
-                    await input.sendKeys(s);
-                    await driver.sleep(3300);
-                    break;
-                  }
+                console.log({s});
+                let inputs = await tr.findElements(By.css('td.audio[data-key] div.files-add input'));
+                if (inputs.length) {
+                  const input = inputs[0];
+                  console.log('sending ' + s);
+                  await input.sendKeys(s);
+                  await driver.sleep(1000);
                 }
               }
             }
