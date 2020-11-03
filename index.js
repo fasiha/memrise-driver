@@ -73,7 +73,7 @@ const unique = v => {
     await driver.sleep(12000);
 
     let levels = await driver.findElements(By.css('div.level[data-level-id]'));
-    // levels.reverse();
+    levels.reverse();
     for (let level of levels) {
       // const btn = await level.findElement(By.css('a.show-hide.btn'));
       // {
@@ -113,7 +113,7 @@ const unique = v => {
             let toUpload = unique(
                 flatten(mp3paths.map(p => possibleFilenames.map(f => join(p, f)))).filter(existsSync).filter(s => s));
             console.log({toUploadLength: toUpload.length});
-            if (toUpload.length > 0) {
+            if (toUpload.length > 0) {// if needed, add audioUrls.length > 2 requirement here
               for (let s of toUpload) {
                 console.log({s});
                 let inputs = await tr.findElements(By.css('td.audio[data-key] div.files-add input'));
