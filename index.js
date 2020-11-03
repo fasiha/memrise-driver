@@ -113,7 +113,7 @@ const unique = v => {
             let toUpload = unique(
                 flatten(mp3paths.map(p => possibleFilenames.map(f => join(p, f)))).filter(existsSync).filter(s => s));
             console.log({toUploadLength: toUpload.length});
-            if (toUpload.length > 0) {// if needed, add audioUrls.length > 2 requirement here
+            if (toUpload.length > 0 && audioUrls.length === 0) {// if needed, add audioUrls.length requirement here
               for (let s of toUpload) {
                 console.log({s});
                 let inputs = await tr.findElements(By.css('td.audio[data-key] div.files-add input'));
