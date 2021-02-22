@@ -1,181 +1,199 @@
-"use strict";
-/*
-Step 0: download geckodriver from
-https://github.com/mozilla/geckodriver/releases/ and put it in your path (e.g.,
-this directory).
+const puppeteer = require('puppeteer');
+const {PollyClient, SynthesizeSpeechCommand} = require("@aws-sdk/client-polly");
+const {join} = require('path')
+const {existsSync, createWriteStream} = require('fs');
+const {Stream} = require('stream');
 
-Step 1: create or edit `PRIVATE.js` to include fields. See `PRIVATE_example.js`
-for required fields.
-
-Step 2: run
-```
-$ node index.js
-```
-and make a note of rows missing audio by searching output for "Uploaded 0 audio
-files for:".
-
-Step 3: perhaps using `makeAudio.sh` and AWS Polly, create audio.
-
-Step 4: rerun `node index.js` to upload audio.
-*/
-
-const {Builder, By, Key, until} = require('selenium-webdriver');
-const {existsSync} = require('fs');
-const {join} = require('path');
-const fetch = require('node-fetch');
-const {writeFile} = require('fs');
-const {promisify} = require('util');
-const writeFilePromise = promisify(writeFile);
-const {url, user, passwd, keyColumnNumbers, mp3paths, imgpaths} = require('./PRIVATE');
-if ([url, user, passwd, keyColumnNumbers, mp3paths].some(x => typeof x === 'undefined')) {
-  throw new Error('Required personal parameter missing')
-}
-
-const CONTENT_DIR = '.';
-
+// HELPERS
 /**
- * Download a URL, then dump to a file.
- * @param {String} url
- * @param {String} outputPath
+ * Given a stream, save it to disk. Returns a promise that resolves after the stream is closed (hopefully the file will
+ * be ready then?)
+ * @param {Stream} stream
+ * @param {string} path
  */
-function downloadFile(url, outputPath) {
-  return fetch(url).then(x => x.arrayBuffer()).then(x => writeFilePromise(outputPath, Buffer.from(x)));
+function audioStreamToDisk(stream, path) {
+  return new Promise((resolve, reject) => stream.pipe(createWriteStream(path)).on('close', () => resolve()));
 }
-
-/**
- * Convert a string to a stringy slug (using alphanumeric, dashes, underscores, and dots only).
- * @param {String} s string to make a slug
- */
-function slugify(s) { return s.replace(/[^-_.a-zA-Z0-9]+/g, '-'); }
-
-const toDownloadPath = f => join(CONTENT_DIR, f);
-const downloadUrls = urls => Promise.all(urls.map(
-    url => existsSync(toDownloadPath(slugify(url))) ? false : downloadFile(url, toDownloadPath(slugify(url)))));
-const flatten = v => v.reduce((prev, curr) => prev.concat(curr), []);
-const unique = v => {
-  let s = new Set(v);
-  return [...s];
-};
-
-(async function memrise() {
-  let driver = await new Builder().forBrowser('firefox').build();
-  try {
-    await driver.get('https://www.memrise.com/login/');
-    await driver.findElement(By.name('username')).sendKeys(user);
-    await driver.findElement(By.name('password')).sendKeys(passwd, Key.RETURN);
-    await driver.wait(until.titleIs('Dashboard - Memrise'), 20000);
-    await driver.get(url);
-    console.log('WAITING 1');
-    await driver.sleep(12000);
-    await driver.executeScript(
-        `Array.from(document.getElementsByClassName('show-hide btn btn-small')).forEach(x => x.click())`);
-    console.log('WAITING 2');
-    await driver.sleep(12000);
-
-    let levels = await driver.findElements(By.css('div.level[data-level-id]'));
-    levels.reverse();
-    for (let level of levels) {
-      // const btn = await level.findElement(By.css('a.show-hide.btn'));
-      // {
-      //   const actions = driver.actions();
-      //   await actions.keyDown(Key.ESCAPE).keyUp(Key.ESCAPE).perform();
-      // }
-      // await btn.click();
-      // await driver.sleep(1000);
-      // {
-      //   const actions = driver.actions();
-      //   await actions.keyDown(Key.ESCAPE).keyUp(Key.ESCAPE).perform();
-      // }
-
-      let levelTitle = await (level.findElement(By.css('div.level-header h3.level-name')).then(n => n.getText()));
-
-      let trs = await level.findElements(By.css('tr.thing'));
-      console.log({levelTitle, trsLength: Array.from(trs).length});
-
-      for (let tr of trs) {
-        let textCols = await tr.findElements(By.css('td.cell.text[data-key]'));
-        let texts = await Promise.all(textCols.map(td => td.getText()));
-        let key = keyColumnNumbers.map(n => texts[n]).filter(s => !!s).join(',');
-        if (!key) { throw new Error('No key found'); }
-
-        // Audio
-        let auds = await tr.findElements(By.css('td.audio[data-key]'));
-        console.log({audsLength: Array.from(auds).length});
-        let audioUrls = [];
-        if (auds.length >= 0) {
-          let aud = auds[0];
-          let players = await aud.findElements(By.css('a.audio-player[data-url]'));
-          audioUrls = await Promise.all(players.map(a => a.getAttribute('data-url')));
-          console.log({audioUrlsLength: audioUrls.length});
-          // await downloadUrls(audioUrls);
-          if (audioUrls.length >= 0) {
-            let possibleFilenames = flatten(texts.map(s => [s, s.replace(/\?/g, '？')])).map(s => `${s}.mp3`);
-            let toUpload = unique(
-                flatten(mp3paths.map(p => possibleFilenames.map(f => join(p, f)))).filter(existsSync).filter(s => s));
-            console.log({toUploadLength: toUpload.length});
-            if (toUpload.length > 0 && audioUrls.length === 0) {// if needed, add audioUrls.length requirement here
-              for (let s of toUpload) {
-                console.log({s});
-                let inputs = await tr.findElements(By.css('td.audio[data-key] div.files-add input'));
-                if (inputs.length) {
-                  const input = inputs[0];
-                  console.log('sending ' + s);
-                  await input.sendKeys(s);
-                  await driver.sleep(1000);
-                }
-              }
-            }
-            console.log(`// DEBUG: Uploaded ${toUpload.length} audio files for: ${key}: ${toUpload.join(' , ')}`);
-          }
-        }
-
-        // Images
-        let imgs = await tr.findElements(By.css('td.image[data-key]'));
-        if (imgs.length && imgpaths) {
-          const img = imgs[0];
-          const existing = await img.findElements(By.css('img.thing-img[data-url]'));
-          // const imgUrls = await Promise.all(existing.map(img => img.getAttribute('data-url')));
-          if (existing.length === 0) {
-            let possibleFilenames =
-                flatMap(flatMap(texts, s => [s, s.replace(/\?/g, '？')]), s => [`${s}.jpg`, `${s}.png`]);
-            possibleFilenames = Array.from(new Set(possibleFilenames));
-            let toUpload = flatten(imgpaths.map(p => possibleFilenames.map(f => join(p, f)))).filter(existsSync);
-            if (toUpload.length > 0) {
-              for (let s of toUpload) {
-                let input = await img.findElement(By.css('div.files-add input'));
-                await input.sendKeys(s);
-                await driver.sleep(2000);
-              }
-            }
-            console.log(`// DEBUG: Uploaded ${toUpload.length} img files for: ${key}: ${toUpload.join(' , ')}`);
-          }
-        }
-
-        if (false) {
-          // Images
-          let imgs = await tr.findElements(By.css('td.image[data-key] div.images img.thing-img[data-url]'));
-          let imgUrls = await Promise.all(imgs.map(img => img.getAttribute('data-url')));
-          // await downloadUrls(imgUrls);
-
-          // log
-          console.log(JSON.stringify({texts, key, audio: audioUrls, img: imgUrls}));
-        }
-      }
-    }
-  } finally {
-    await driver.get('https://www.memrise.com/logout');
-    await driver.quit();
-  }
-})();
 
 /**
  *
- * @template T
- * @param {T[]} arr
- * @param {(x:T)=>T[]} f
+ * @param {string[]} texts candidate text that might match mp3s
+ * @param {string[]} voicePaths directories for each voice
+ * @returns {string[]}
+ * For each voice directory, we only want ONE of the input strings to match. I.e., we do NOT want to return *multiple*
+ * mp3s in the same voice, because e.g., we might have audio for all-kana and all-kanji (same voice), and don't want to
+ * upload both.
  */
-function flatMap(arr, f) {
+function searchForMp3s(texts, voicePaths) {
+  /** @type{string[]} */
   const ret = [];
-  for (const x of arr) { ret.push(...f(x)); }
+
+  for (const path of voicePaths) {
+    for (const text of texts) {
+      const candidate = join(path, text + '.mp3');
+      if (existsSync(candidate)) {
+        ret.push(candidate);
+        break;
+      }
+    }
+  }
   return ret;
+}
+
+/**
+ *
+ * @param {{
+ * url: string,
+ * user: string,
+ * passwd: string,
+ * voices: string[],
+ * voices_parent_path: tring,
+ * column_indexes: number[],
+ * aws_region: string,
+ * aws_access_key_id: string,
+ * aws_secret_access_key: string,
+ * verbose: boolean,
+ * bottom_first: boolean,
+}} config
+ */
+async function main(config) {
+  const voicePaths = config.voices.map(v => join(config.voices_parent_path, v));
+  const polly = new PollyClient({
+    region: config.aws_region,
+    credentials: {accessKeyId: config.aws_access_key_id, secretAccessKey: config.aws_secret_access_key},
+  });
+
+  const browser = await puppeteer.launch({headless: false});
+  const page = await browser.newPage();
+  await page.goto('https://app.memrise.com/signin');
+
+  await page.focus('#username');
+  await page.keyboard.type(config.user);
+
+  await page.focus('#password');
+  await page.keyboard.type(config.passwd);
+  await page.keyboard.press('Enter');
+
+  await page.waitForNavigation();
+
+  if (!config.url.includes('/edit')) { console.error(`WARNING: ${config.url} doesn't contain "edit"?`); }
+  await page.goto(config.url);
+
+  {
+    const cookies = await page.$('a[aria-label="allow cookies"]');
+    if (cookies) { await cookies.click(); }
+  }
+
+  const levels = await page.$$('div.level')
+  if (config.verbose) { console.log(`${levels.length} levels found`); }
+  if (config.bottom_first) { levels.reverse(); }
+
+  for (const level of levels) {
+    const levelId = await (await level.getProperty('id')).jsonValue();
+
+    const button = await level.$('.show-hide.btn.btn-small')
+    if (button) {
+      await Promise.all([page.waitForNavigation(), button.click(), page.waitForTimeout(500)]);
+      // we've expanded the level and can see all the cards inside
+
+      if (config.verbose) {
+        const handle = await level.$eval('.level-handle', o => o.textContent.trim());
+        const name = await level.$eval('.level-name', o => o.textContent.trim());
+        console.log(`Opened #${handle}: ${name}`);
+        console.log(`${(await page.$$(`#${levelId} tr.thing`)).length} <tr>s found`);
+      }
+
+      // oddly, I can't do `level.$$()` here, I have to use `page`. With the DOM element's ID, this is fast, but still
+      // weird
+      for (const tr of await page.$$(`#${levelId} tr.thing`)) {
+        const texts = await tr.$$eval('td.cell.text[data-key]', tds => tds.map(td => td.innerText.trim()));
+        // Above, we want to use `innerText` instead of `textContent`. The latter has some "Alts" padding
+        /**@type{string[]} */
+        const relevantTexts = config.column_indexes.map(n => texts[n]).filter(s => typeof s === 'string' && s.length);
+        if (config.verbose) { console.log(` Looking at row ${relevantTexts.join('//')}`); }
+
+        const onlineMp3s = await tr.$$('a.audio-player[data-url]');
+        if (config.verbose) { console.log(`  ${onlineMp3s.length} mp3s found already online`); }
+
+        // Assuming we have some text that ought to be speech, are there fewer mp3s than voices?
+        if (onlineMp3s.length < config.voices.length && relevantTexts.length > 0) {
+          // not enough mp3s have been uploaded: this row has text that should be spoken
+
+          // look for mp3s on disk: this might be `kanji.mp3` or `kana.mp3` etc.
+          const savedMp3s = searchForMp3s(relevantTexts, voicePaths);
+          if (config.verbose) {
+            console.log(`  ${savedMp3s.length} mp3s locally available: ${
+                savedMp3s.map(s => s.replace(config.voices_parent_path, '…')).join(', ')}`);
+          }
+          // did we find an mp3 for each voice?
+          if (savedMp3s.length < config.voices.length) {
+            // we don't have enough audio saved to disk for this row. Let's text-to-speech `relevantTexts[0]`
+            const Text = relevantTexts[0];
+            if (Text.includes('/')) { throw new Error('Remove / (slash) from text (cannot yet reliably save)'); }
+            for (const voice of config.voices) {
+              const mp3path = join(join(config.voices_parent_path, voice), Text + '.mp3');
+              if (existsSync(mp3path)) { continue; } // don't rerun Polly if we don't need to!
+              if (config.verbose) { console.log(`  Generating ${Text} with ${voice}`) }
+              const data = await polly.send(new SynthesizeSpeechCommand({VoiceId: voice, OutputFormat: 'mp3', Text}));
+              await audioStreamToDisk(data.AudioStream, mp3path);
+              if (config.verbose) { console.log(`  Saved ${mp3path.replace(config.voices_parent_path, '…')}`); }
+            }
+          }
+        }
+
+        const savedMp3s = searchForMp3s(relevantTexts, voicePaths);
+        if (config.verbose) {
+          console.log(`  ${savedMp3s.length} mp3s locally available: ${
+              savedMp3s.map(s => s.replace(config.voices_parent_path, '…')).join(', ')}`);
+        }
+
+        if (/*onlineMp3s.length>config.voices.length ||*/ savedMp3s.length > onlineMp3s.length &&
+            onlineMp3s.length === 0) {
+          // delete all audio before we upload these
+          if (onlineMp3s.length > 0) {
+            await (await tr.$('td.audio button.dropdown-toggle')).click();
+            page.waitForTimeout(1000);
+            let toDelete = await tr.$('td.audio i.ico.ico-trash');
+            while (toDelete) {
+              await toDelete.click();
+              if (config.verbose) { console.log('  Deleted one audio'); }
+              await page.waitForTimeout(1500);
+
+              await (await tr.$('td.audio button.dropdown-toggle')).click();
+              await page.waitForTimeout(1000);
+              toDelete = await tr.$('td.audio i.ico.ico-trash');
+            }
+          }
+
+          // upload
+          for (const mp3 of savedMp3s) {
+            const upload = await tr.$('td.audio[data-key] div.files-add input[type=file]');
+            await upload.uploadFile(mp3);
+
+            if (config.verbose) { console.log(`  Uploaded ${mp3.replace(config.voices_parent_path, '…')}`); }
+            await page.waitForTimeout(2000);
+          }
+        }
+      }
+    }
+  }
+
+  await browser.close();
+}
+
+if (module === require.main) {
+  (async () => {
+    if (process.argv[2]) {
+      let pathToConfig = process.argv[2];
+      if (!pathToConfig.startsWith('/')) { pathToConfig = join('.BLA_BLA', pathToConfig).replace('BLA_BLA', ''); }
+      if (existsSync(pathToConfig)) {
+        var config = require(pathToConfig);
+        await main(config);
+      } else {
+        console.error(`${pathToConfig} not found`);
+      }
+    } else {
+      console.error(`REQUIRED: config.js`);
+    }
+  })();
 }
