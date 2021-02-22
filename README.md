@@ -16,16 +16,16 @@ Finally, there appear to be no copyright issues related to AWS or Polly: assumin
 
 ## Installation
 To use Memrise-Driver:
-- install [Git](https://git-scm.com/)
-- install [Node.js](https://nodejs.org/)
-- in your command line (Terminal app in macOS, Command Prompt in Windows, xterm in Linux, etc.), run the following to clone (copy) this repository from GitHub to your computer, change into the newly-created directory, and install JavaScript dependencies:
-```
+- install [Git](https://git-scm.com/) if you don't have it already—it comes pre-installed on macOS these days
+- install [Node.js](https://nodejs.org/)—any recent version is fine
+- in your command line (Terminal app in macOS, Command Prompt in Windows, xterm in Linux, etc.), run the following:
+```console
 git clone https://github.com/fasiha/memrise-driver.git
 cd memrise-driver
 npm install
 ```
 
-This will clone (download) this repository from GitHub to your computer, change into the newly-created directory, and install Node dependencies (this might take a minute or two because Node will download the Chromium browser).
+This will clone (download) this repository from GitHub to your computer, change into the newly-created directory, and install Node dependencies (which might take a minute or two because Node will download the Chromium browser).
 
 ## Configuration
 Then, create a *configuration* file. Look at [example_config.js](example_config.js) for the format it needs (a Node.js module). Here are all the fields you need to provide—
@@ -37,7 +37,7 @@ This is the URL of the *course editor*, something like https://app.memrise.com/c
 Your Memrise username.
 
 ### `passwd`
-Your Memrise password. If you're unhappy with storing storing this in a file on your disk, [reach out](issues/) and we can fix this.
+Your Memrise password. If you're unhappy with storing storing this in a file on your disk, [reach out](https://github.com/fasiha/memrise-driver/issues) and we can fix this.
 
 ### `voices`
 A list of [AWS Polly voices](https://docs.aws.amazon.com/polly/latest/dg/voicelist.html). For Japanese, AWS Polly currently has Mizuki (femme) and Takumi (masc), so I might have `voices` set to `['Mizuki', 'Takumi']` (the square-brackets indicate a list in JavaScript).
@@ -75,7 +75,7 @@ A very long string from AWS representing your IAM user's secret key.
 This should be `true` or `false`. If true, the driver will print lots of text about what it's doing.
 
 ### `bottom_first`
-Again, `true` or `false`. If true, the driver will start from the last section of your course instead of the first. This is useful if, for example, your course had audio, then you added some more sections, and you want to add text to these.
+Again, `true` or `false`. If true, the driver will start from the last section of your course instead of the first. This is useful if, for example, your course had audio, then you added some more sections, and you want to add audio to these.
 
 ## Usage
 After creating a configuration file with the above parameters filled in, invoke the driver from your command prompt (Terminal app, Command Prompt, xterm, etc.):
