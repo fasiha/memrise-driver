@@ -79,6 +79,21 @@
   copy(kanjis.map((kanji, idx) => kanji || kanas[idx]).join('\n'))
 }
 
+{
+  Array.from(document.getElementsByClassName('show-hide btn btn-small')).forEach(x => x.click());
+  var levels = Array.from(document.querySelectorAll('div.level'));
+  var table =
+      levels
+          .map(level =>
+                   level.querySelector('.level-name').innerText.trim() + '\n' +
+                   Array.from(level.querySelectorAll('tr.thing'))
+                       .map(tr =>
+                                Array.from(tr.querySelectorAll('td.cell.text')).map(o => o.innerText.trim()).join('\t'))
+                       .join('\n'))
+          .join('\n\n')
+  copy(table)
+}
+
 // kanji/kana that's MISSING audio
 {
   // expand all
