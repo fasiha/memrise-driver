@@ -167,7 +167,11 @@ async function main(config) {
 
           // upload
           for (const mp3 of savedMp3s) {
-            const upload = await tr.$('td.audio[data-key] div.files-add input[type=file]');
+            let upload = await tr.$('td.audio[data-key] div.files-add input[type=file]');
+            while (!upload) {
+              await page.waitForTimeout(2000);
+              upload = await tr.$('td.audio[data-key] div.files-add input[type=file]');
+            }
             await upload.uploadFile(mp3);
 
             if (config.verbose) { console.log(`  Uploaded ${mp3.replace(config.voices_parent_path, '…')}`); }
