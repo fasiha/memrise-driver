@@ -93,7 +93,7 @@ async function main(config) {
 
     const button = await level.$('.show-hide.btn.btn-small')
     if (button) {
-      await Promise.all([page.waitForNavigation(), button.click(), page.waitForTimeout(500)]);
+      await Promise.all([button.click(), page.waitForTimeout(1500)]);
       // we've expanded the level and can see all the cards inside
 
       if (config.verbose) {
@@ -109,7 +109,8 @@ async function main(config) {
         const texts = await tr.$$eval('td.cell.text[data-key]', tds => tds.map(td => td.innerText.trim()));
         // Above, we want to use `innerText` instead of `textContent`. The latter has some "Alts" padding
         /**@type{string[]} */
-        const relevantTexts = config.column_indexes.map(n => texts[n]).filter(s => typeof s === 'string' && s.length);
+        let relevantTexts = config.column_indexes.map(n => texts[n]).filter(s => typeof s === 'string' && s.length);
+        if (config.omit_english) { relevantTexts = relevantTexts.filter(s => !s.match(/[a-zA-Z]/)); }
         if (config.verbose) { console.log(` Looking at row ${relevantTexts.join('//')}`); }
 
         const onlineMp3s = await tr.$$('a.audio-player[data-url]');

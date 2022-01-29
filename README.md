@@ -77,6 +77,9 @@ This should be `true` or `false`. If true, the driver will print lots of text ab
 ### `bottom_first`
 Again, `true` or `false`. If true, the driver will start from the last section of your course instead of the first. This is useful if, for example, your course had audio, then you added some more sections, and you want to add audio to these.
 
+### `omit_english`
+Optional, `true` or `false`. If false, nothing special happens. If true, skips columns that have any English texts. Useful once in a while.
+
 ## Usage
 After creating a configuration file with the above parameters filled in, invoke the driver from your command prompt (Terminal app, Command Prompt, xterm, etc.):
 ```console

@@ -10,4 +10,5 @@ module.exports = {
   aws_secret_access_key: 'TESTING',
   verbose: false,
   bottom_first: true,
+  omit_english: false,
 };
