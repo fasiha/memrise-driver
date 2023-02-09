@@ -11,6 +11,6 @@
   "license": "Unlicense",
   "dependencies": {
     "@aws-sdk/client-polly": "^3.5.0",
-    "puppeteer": "^7.0.4"
+    "puppeteer": "^19.6.3"
   }
 }
